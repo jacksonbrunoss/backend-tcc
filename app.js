@@ -1,5 +1,15 @@
 const express = require("express");
+const morgan = require("morgan");
 const app = express();
+
+const routerAnimals = require('./router/animals');
+const routerUsers = require('./router/users')
+
+app.use(morgan("dev"));
+
+
+app.use('/animals', routerAnimals);
+app.use('/users', routerUsers);
 
 app.use((req, res, next) => {
   const erro = new Error("Não foi possivel encontrar!");
