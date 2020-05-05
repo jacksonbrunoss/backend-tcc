@@ -1,6 +1,32 @@
 const express = require("express");
 const router = express.Router();
 const mysql = require("../mysql").pool;
+const multer = require('multer');
+
+const storage = multer.diskStorage({
+  destination: function (req, file, call) {
+    call(null, './uploads/');
+  },
+  filename: function (req, file, call) {
+    call(null, new Date().toISOString() + file.originalname);
+  }
+});
+
+const fileFilter = (req, file, call) => {
+  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+    call(null, true);
+  } else {
+    call(null, false);
+  }
+}
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 1024 * 1024 * 5
+  },
+  fileFilter: fileFilter
+});
 
 // Chamando os controllers
 //const animalsController = require('../controllers/animals-controllers');
@@ -8,51 +34,97 @@ const mysql = require("../mysql").pool;
 router.get("/", (req, res, next) => {
   mysql.getConnection((error, conn) => {
     if (error) {
-      return res.status(500).send({ error: error });
+      return res.status(500).send({
+        error: error
+      });
     }
-    conn.query(`SELECT * FROM animals;`, (error, result, fields) => {
-      if (error) {
-        return res.status(500).send({ error: error });
+    conn.query(
+      `SELECT animals.id_animal,
+                       animals.nome,
+                       animals.descricao,
+                       animals.especie,
+                       animals.sexo,
+                       animals.tamanho,
+                       animals.observacoes,
+                       animals.estado,
+                       animals.cidade,
+                       animals.imagem_animal,
+                       users.id_user,
+                       users.nome_user,
+                       users.email,
+                       users.estado,
+                       users.cep,
+                       users.cidade,
+                       users.rua,
+                       users.bairro,
+                       users.numero,
+                       users.telefone  
+                  FROM animals 
+                  INNER JOIN users
+                     ON users.id_user = animals.id_user;`,
+      (error, result, fields) => {
+        if (error) {
+          return res.status(500).send({
+            error: error
+          });
+        }
+        /* Melhorando a saida de dados */
+        const response = {
+          total: result.length,
+          animals: result.map((animal) => {
+            return {
+              id_animal: animal.id_animal,
+              nome: animal.nome,
+              descricao: animal.descricao,
+              especie: animal.especie,
+              sexo: animal.sexo,
+              tamanho: animal.tamanho,
+              observacoes: animal.observacoes,
+              estado: animal.estado,
+              cidade: animal.cidade,
+              id_user: animal.id_user,
+              imagem_animal: animal.imagem_animal,
+              usuario: {
+                id_user: animal.id_user,
+                nome: animal.nome_user,
+                email: animal.email,
+                estado: animal.estado,
+                cep: animal.cep,
+                cidade: animal.cidade,
+                rua: animal.rua,
+                bairro: animal.bairro,
+                numero: animal.numero,
+                telefone: animal.telefone,
+              },
+              request: {
+                tipo: "GET",
+                descricao: "Mostrar um animal pelo ID 🙂.",
+                url: `http://localhost/3030/animals/${animal.id_animal}`,
+              },
+            };
+          }),
+        };
+        return res.status(200).send(response);
       }
-      /* Melhorando a saida de dados */
-      const response = {
-        total: result.length,
-        animals: result.map((animal) => {
-          return {
-            id_animal: animal.id_animal,
-            nome: animal.nome,
-            descricao: animal.descricao,
-            especie: animal.especie,
-            sexo: animal.sexo,
-            tamanho: animal.tamanho,
-            observacoes: animal.observacoes,
-            estado: animal.estado,
-            cidade: animal.cidade,
-            id_user: animal.id_user,
-            request: {
-              tipo: "GET",
-              descricao: "Mostrar um animal pelo ID 🙂.",
-              url: `http://localhost/3030/animals/${animal.id_animal}`,
-            },
-          };
-        }),
-      };
-      return res.status(200).send(response);
-    });
+    );
   });
 });
 
 router.get("/:id_animal", (req, res, next) => {
   mysql.getConnection((error, conn) => {
     if (error) {
-      return res.status(500).send({ error: error });
+      return res.status(500).send({
+        error: error
+      });
     }
     conn.query(
       `SELECT * FROM animals WHERE id_animal = ?;`,
       [req.params.id_animal],
       (error, result, fields) => {
         if (error) {
-          return res.status(500).send({ error: error });
+          return res.status(500).send({
+            error: error
+          });
         }
         if (result.length == 0) {
           return res.status(404).send({
@@ -71,6 +143,7 @@ router.get("/:id_animal", (req, res, next) => {
             estado: result[0].estado,
             cidade: result[0].cidade,
             id_user: result[0].id_user,
+            imagem_animal: result[0].imagem_animal,
             request: {
               tipo: "GET",
               descricao: "Retorna todos os produtos",
@@ -85,11 +158,11 @@ router.get("/:id_animal", (req, res, next) => {
   });
 });
 
-router.post("/", (req, res, next) => {
+router.post("/", upload.single('image'), (req, res, next) => {
   mysql.getConnection((error, conn) => {
     conn.query(
-      `INSERT INTO animals (nome, descricao, especie, sexo, tamanho, observacoes, estado, cidade, id_user) 
-                 VALUES (?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO animals (nome, descricao, especie, sexo, tamanho, observacoes, estado, cidade, id_user, imagem_animal) 
+                 VALUES (?,?,?,?,?,?,?,?,?,?)`,
       [
         req.body.nome,
         req.body.descricao,
@@ -100,6 +173,7 @@ router.post("/", (req, res, next) => {
         req.body.estado,
         req.body.cidade,
         req.body.id_user,
+        req.file.path,
       ],
       (error, result, field) => {
         conn.release();
@@ -112,7 +186,7 @@ router.post("/", (req, res, next) => {
         const response = {
           mensagem: "Animal foi inserido com sucesso 😄.",
           animalCriado: {
-            id_animal: result.insertID,
+            id_animal: result.id_animal,
             nome: req.body.nome,
             descricao: req.body.descricao,
             especie: req.body.especie,
@@ -122,6 +196,7 @@ router.post("/", (req, res, next) => {
             estado: req.body.estado,
             cidade: req.body.cidade,
             id_user: req.body.id_user,
+            imagem_animal: req.file.path,
             request: {
               tipo: "GET",
               descricao: "Mostrar todos os animais.",
@@ -138,7 +213,9 @@ router.post("/", (req, res, next) => {
 router.patch("/", (req, res, next) => {
   mysql.getConnection((error, conn) => {
     if (error) {
-      return res.status(500).send({ error: error });
+      return res.status(500).send({
+        error: error
+      });
     }
     conn.query(
       `UPDATE animals SET nome = ?, descricao = ?, especie = ?, sexo = ?, tamanho = ?, observacoes = ?, estado = ?, cidade = ? WHERE id_animal = ?`,
@@ -156,7 +233,9 @@ router.patch("/", (req, res, next) => {
       (error, result, field) => {
         conn.release();
         if (error) {
-          return res.status(500).send({ error: error });
+          return res.status(500).send({
+            error: error
+          });
         }
         const response = {
           mensagem: "Animal atualizado com sucesso",
@@ -186,7 +265,9 @@ router.patch("/", (req, res, next) => {
 router.delete("/", (req, res, next) => {
   mysql.getConnection((error, conn) => {
     if (error) {
-      return res.status(500).send({ error: error });
+      return res.status(500).send({
+        error: error
+      });
     }
     conn.query(
       `DELETE FROM animals WHERE id_animal = ?`,
@@ -194,7 +275,9 @@ router.delete("/", (req, res, next) => {
       (error, result, field) => {
         conn.release();
         if (error) {
-          return res.status(500).send({ error: error });
+          return res.status(500).send({
+            error: error
+          });
         }
         const response = {
           mensagem: "Animal removido com sucesso",

@@ -7,6 +7,7 @@ const routerAnimals = require('./router/animals');
 const routerUsers = require('./router/users')
 
 app.use(morgan("dev"));
+app.use('/uploads', express.static('uploads'));
 app.use(bodyParser.urlencoded({
   extended: false
 }));
