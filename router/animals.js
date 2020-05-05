@@ -1,59 +1,138 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
+const mysql = require("../mysql").pool;
 
-// Chamando os controllers 
+// Chamando os controllers
 //const animalsController = require('../controllers/animals-controllers');
 
-router.get('/',
-    (req, res, next) => {
-        res.status(200).send({
-            mensagem: "Usando o GET no route animals"
-        })
+router.get("/", (req, res, next) => {
+  mysql.getConnection((error, conn) => {
+    if (error) {
+      return res.status(500).send({ error: error });
     }
-);
+    conn.query(`SELECT * FROM animals;`, (error, result, fields) => {
+      if (error) {
+        return res.status(500).send({ error: error });
+      }
+      return res.status(200).send({ animals: result });
+    });
+  });
+});
 
-router.get('/:id_animals',
-    (req, res, next) => {
-        const id = req.params.id_animals
-        res.status(200).send({
-            mensagem: "Usando o GET com paramentro ID no route animals",
-            id: id
-        })
+router.get("/:id_animal", (req, res, next) => {
+  mysql.getConnection((error, conn) => {
+    if (error) {
+      return res.status(500).send({ error: error });
     }
-);
-
-router.post('/',
-    (req, res, next) => {
-        const animals = {
-            nome: req.body.nome,
-            descricao: req.body.descricao,
-            especie: req.body.especie,
-            sexo: req.body.sexo,
-            tamanho: req.body.tamanho,
-            observacoes: req.body.observacoes,
-            id_users: req.body.id_users
+    conn.query(
+      `SELECT * FROM animals WHERE id_animal = ?;`,
+      [req.params.id_animal],
+      (error, result, fields) => {
+        if (error) {
+          return res.status(500).send({ error: error });
         }
-        res.status(200).send({
-            mensagem: "Usando o POST no route animals",
-            animals: animals
-        })
-    }
-);
+        return res.status(200).send({ animal: result });
+      }
+    );
+  });
+});
 
-router.patch('/',
-    (req, res, next) => {
-        res.status(200).send({
-            mensagem: "Usando o PATCH no route animals"
-        })
-    }
-);
+router.post("/", (req, res, next) => {
+  mysql.getConnection((error, conn) => {
+    conn.query(
+      `INSERT INTO animals (nome, descricao, especie, sexo, tamanho, observacoes, estado, cidade, id_user) 
+                 VALUES (?,?,?,?,?,?,?,?,?)`,
+      [
+        req.body.nome,
+        req.body.descricao,
+        req.body.especie,
+        req.body.sexo,
+        req.body.tamanho,
+        req.body.observacoes,
+        req.body.estado,
+        req.body.cidade,
+        req.body.id_user,
+      ],
+      (error, result, field) => {
+        conn.release();
+        if (error) {
+          res.status(500).send({
+            error: error,
+            response: null,
+          });
+        }
+        res.status(201).send({
+          mensagem: "Novo animal foi inserido com sucesso 😄.",
+          nome: result.nome,
+        });
+      }
+    );
+  });
+});
 
-router.delete('/',
-    (req, res, next) => {
-        res.status(200).send({
-            mensagem: "Usando o DELETE no route animals"
-        })
+router.patch("/", (req, res, next) => {
+  mysql.getConnection((error, conn) => {
+    if (error) {
+      return res.status(500).send({ error: error });
     }
-);
+    conn.query(
+      `UPDATE animals
+                SET nome          = ?,
+                    descricao     = ?,
+                    especie       = ?,
+                    sexo          = ?,
+                    tamanho       = ?,
+                    observacoes   = ?,
+                    estado        = ?,
+                    cidade        = ?,
+                    id_user       = ?,
+              WHERE id_animal     = ?`,
+      [
+        req.body.nome,
+        req.body.descricao,
+        req.body.especie,
+        req.body.sexo,
+        req.body.tamanho,
+        req.body.observacoes,
+        req.body.estado,
+        req.body.cidade,
+        req.body.id_user,
+        req.body.id_animal,
+      ],
+      (error, result, field) => {
+        conn.release();
+        if (error) {
+          return res.status(500).send({ error: error });
+        }
+
+        res.status(202).send({
+          mensagem: "Produto alterado com sucesso 👌",
+        });
+      }
+    );
+  });
+});
+
+router.delete("/", (req, res, next) => {
+  mysql.getConnection((error, conn) => {
+    if (error) {
+      return res.status(500).send({ error: error });
+    }
+    conn.query(
+      `DELETE FROM animals WHERE id_animal = ?`,
+      [req.body.id_animal],
+      (error, result, field) => {
+        conn.release();
+        if (error) {
+          return res.status(500).send({ error: error });
+        }
+
+        res.status(202).send({
+          mensagem: "Produto removido com sucesso",
+        });
+      }
+    );
+  });
+});
 
 module.exports = router;
