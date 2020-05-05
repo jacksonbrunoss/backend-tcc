@@ -24,8 +24,18 @@ router.get('/:id_animals',
 
 router.post('/',
     (req, res, next) => {
+        const animals = {
+            nome: req.body.nome,
+            descricao: req.body.descricao,
+            especie: req.body.especie,
+            sexo: req.body.sexo,
+            tamanho: req.body.tamanho,
+            observacoes: req.body.observacoes,
+            id_users: req.body.id_users
+        }
         res.status(200).send({
-            mensagem: "Usando o POST no route animals"
+            mensagem: "Usando o POST no route animals",
+            animals: animals
         })
     }
 );
