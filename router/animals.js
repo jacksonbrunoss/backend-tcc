@@ -1,31 +1,31 @@
 const express = require("express");
 const router = express.Router();
 const mysql = require("../mysql").pool;
-const multer = require('multer');
+const multer = require("multer");
 
 const storage = multer.diskStorage({
   destination: function (req, file, call) {
-    call(null, './uploads/');
+    call(null, "./uploads/");
   },
   filename: function (req, file, call) {
     call(null, new Date().toISOString() + file.originalname);
-  }
+  },
 });
 
 const fileFilter = (req, file, call) => {
-  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
+  if (file.mimetype === "image/jpeg" || file.mimetype === "image/png") {
     call(null, true);
   } else {
     call(null, false);
   }
-}
+};
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 1024 * 1024 * 5
+    fileSize: 1024 * 1024 * 5,
   },
-  fileFilter: fileFilter
+  fileFilter: fileFilter,
 });
 
 // Chamando os controllers
@@ -35,78 +35,35 @@ router.get("/", (req, res, next) => {
   mysql.getConnection((error, conn) => {
     if (error) {
       return res.status(500).send({
-        error: error
+        error: error,
       });
     }
-    conn.query(
-      `SELECT animals.id_animal,
-                       animals.nome,
-                       animals.descricao,
-                       animals.especie,
-                       animals.sexo,
-                       animals.tamanho,
-                       animals.observacoes,
-                       animals.estado,
-                       animals.cidade,
-                       animals.imagem_animal,
-                       users.id_user,
-                       users.nome_user,
-                       users.email,
-                       users.estado,
-                       users.cep,
-                       users.cidade,
-                       users.rua,
-                       users.bairro,
-                       users.numero,
-                       users.telefone  
-                  FROM animals 
-                  INNER JOIN users
-                     ON users.id_user = animals.id_user;`,
-      (error, result, fields) => {
-        if (error) {
-          return res.status(500).send({
-            error: error
-          });
-        }
-        /* Melhorando a saida de dados */
-        const response = {
-          total: result.length,
-          animals: result.map((animal) => {
-            return {
-              id_animal: animal.id_animal,
-              nome: animal.nome,
-              descricao: animal.descricao,
-              especie: animal.especie,
-              sexo: animal.sexo,
-              tamanho: animal.tamanho,
-              observacoes: animal.observacoes,
-              estado: animal.estado,
-              cidade: animal.cidade,
-              id_user: animal.id_user,
-              imagem_animal: animal.imagem_animal,
-              usuario: {
-                id_user: animal.id_user,
-                nome: animal.nome_user,
-                email: animal.email,
-                estado: animal.estado,
-                cep: animal.cep,
-                cidade: animal.cidade,
-                rua: animal.rua,
-                bairro: animal.bairro,
-                numero: animal.numero,
-                telefone: animal.telefone,
-              },
-              request: {
-                tipo: "GET",
-                descricao: "Mostrar um animal pelo ID 🙂.",
-                url: `http://localhost/3030/animals/${animal.id_animal}`,
-              },
-            };
-          }),
-        };
-        return res.status(200).send(response);
+    conn.query(`SELECT * FROM animals;`, (error, result, fields) => {
+      if (error) {
+        return res.status(500).send({
+          error: error,
+        });
       }
-    );
+      /* Melhorando a saida de dados */
+      const response = {
+        animals: result.map((animal) => {
+          return {
+            id_animal: animal.id_animal,
+            nome: animal.nome,
+            descricao: animal.descricao,
+            especie: animal.especie,
+            sexo: animal.sexo,
+            tamanho: animal.tamanho,
+            observacoes: animal.observacoes,
+            estado: animal.estado,
+            cidade: animal.cidade,
+            id_user: animal.id_user,
+            imagem_animal: animal.imagem_animal,
+          };
+        }),
+      };
+      return res.status(200).send(response);
+    });
   });
 });
 
@@ -114,16 +71,39 @@ router.get("/:id_animal", (req, res, next) => {
   mysql.getConnection((error, conn) => {
     if (error) {
       return res.status(500).send({
-        error: error
+        error: error,
       });
     }
     conn.query(
-      `SELECT * FROM animals WHERE id_animal = ?;`,
+      `SELECT animals.id_animal,
+              animals.nome,
+              animals.descricao,
+              animals.especie,
+              animals.sexo,
+              animals.tamanho,
+              animals.observacoes,
+              animals.estado,
+              animals.cidade,
+              animals.imagem_animal,
+              users.id_user,
+              users.nome_user,
+              users.email,
+              users.estado,
+              users.cep,
+              users.cidade,
+              users.rua,
+              users.bairro,
+              users.numero,
+              users.telefone  
+         FROM animals 
+  INNER JOIN users
+          ON users.id_user = animals.id_user
+       WHERE id_animal = ?;`,
       [req.params.id_animal],
       (error, result, fields) => {
         if (error) {
           return res.status(500).send({
-            error: error
+            error: error,
           });
         }
         if (result.length == 0) {
@@ -144,10 +124,17 @@ router.get("/:id_animal", (req, res, next) => {
             cidade: result[0].cidade,
             id_user: result[0].id_user,
             imagem_animal: result[0].imagem_animal,
-            request: {
-              tipo: "GET",
-              descricao: "Retorna todos os produtos",
-              url: "http://localhost:3000/produtos",
+            usuario: {
+              id_user: result[0].id_user,
+              nome: result[0].nome_user,
+              email: result[0].email,
+              estado: result[0].estado,
+              cep: result[0].cep,
+              cidade: result[0].cidade,
+              rua: result[0].rua,
+              bairro: result[0].bairro,
+              numero: result[0].numero,
+              telefone: result[0].telefone,
             },
           },
         };
@@ -158,7 +145,7 @@ router.get("/:id_animal", (req, res, next) => {
   });
 });
 
-router.post("/", upload.single('image'), (req, res, next) => {
+router.post("/", upload.single("image"), (req, res, next) => {
   mysql.getConnection((error, conn) => {
     conn.query(
       `INSERT INTO animals (nome, descricao, especie, sexo, tamanho, observacoes, estado, cidade, id_user, imagem_animal) 
@@ -197,11 +184,7 @@ router.post("/", upload.single('image'), (req, res, next) => {
             cidade: req.body.cidade,
             id_user: req.body.id_user,
             imagem_animal: req.file.path,
-            request: {
-              tipo: "GET",
-              descricao: "Mostrar todos os animais.",
-              url: `http://localhost/3030/animals`,
-            },
+
           },
         };
         return res.status(201).send(response);
@@ -214,7 +197,7 @@ router.patch("/", (req, res, next) => {
   mysql.getConnection((error, conn) => {
     if (error) {
       return res.status(500).send({
-        error: error
+        error: error,
       });
     }
     conn.query(
@@ -234,7 +217,7 @@ router.patch("/", (req, res, next) => {
         conn.release();
         if (error) {
           return res.status(500).send({
-            error: error
+            error: error,
           });
         }
         const response = {
@@ -249,11 +232,6 @@ router.patch("/", (req, res, next) => {
             observacoes: req.body.observacoes,
             estado: req.body.estado,
             cidade: req.body.cidade,
-            request: {
-              tipo: "GET",
-              descricao: "Retorna os detalhes de um produto específico",
-              url: "http://localhost:3000/produtos/" + req.body.id_animal,
-            },
           },
         };
         return res.status(202).send(response);
@@ -266,7 +244,7 @@ router.delete("/", (req, res, next) => {
   mysql.getConnection((error, conn) => {
     if (error) {
       return res.status(500).send({
-        error: error
+        error: error,
       });
     }
     conn.query(
@@ -276,7 +254,7 @@ router.delete("/", (req, res, next) => {
         conn.release();
         if (error) {
           return res.status(500).send({
-            error: error
+            error: error,
           });
         }
         const response = {
